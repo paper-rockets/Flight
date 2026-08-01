@@ -720,7 +720,7 @@ console.error = function(...args) {
     const ROCK_COUNT = isMobile ? 120 : 800;
     const BUSH_COUNT = isMobile ? 72 : 216;
     const ANIMAL_COUNT = isMobile ? 25 : 50;
-    const CLOUD_COUNT = isMobile ? 20 : 50;
+    const CLOUD_COUNT = isMobile ? 40 : 100;
     const FLOWER_COUNT = 0;
     const TREE_MULT = isMobile ? 0.2 : 1.0;
     
@@ -1463,7 +1463,8 @@ console.error = function(...args) {
         instClouds.instanceMatrix.needsUpdate = true;
 
 
-        // High Cumulonimbus Clouds
+        // High Cumulonimbus Clouds — hidden on Low quality
+        if (instHighClouds.visible) {
         const highCloudDist = 3500;
         for (let i = 0; i < HIGH_CLOUD_COUNT; i++) {
             instHighClouds.getMatrixAt(i, dummy.matrix);
@@ -1490,6 +1491,7 @@ console.error = function(...args) {
             instHighClouds.setMatrixAt(i, dummy.matrix);
         }
         instHighClouds.instanceMatrix.needsUpdate = true;
+        }
 
         // Floating Crystals — respawn around player, slow drift and rotation
         const crystalDist = isMobile ? 1500 : 2500;
@@ -1913,6 +1915,8 @@ console.error = function(...args) {
                 if (level === 'low') {
                     applyLowSettings();
                     applyTerrainRes(128);
+                    instHighClouds.visible = false;
+                    instBushes.visible = false;
                     if (perfPanel) perfPanel.style.display = 'flex';
                 } else {
                     // Medium or High — reset all Low-only tweaks
@@ -1920,6 +1924,8 @@ console.error = function(...args) {
                     fpsCapEnabled = false;
                     lowPixelRatio = false;
                     lowHalfBloom = false;
+                    instHighClouds.visible = true;
+                    instBushes.visible = true;
                     applyTerrainRes(256);
                     if (level === 'medium') {
                         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
