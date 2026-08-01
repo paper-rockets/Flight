@@ -229,6 +229,7 @@ console.error = function(...args) {
     let fpsCapEnabled = false;
     let fpsCap30Last = 0;
     let halfRocksEnabled = false;
+    let lowNoBloom = false;
     let isPhotoMode = false;
     let isFlightPaused = false;
     let photoControls = null;
@@ -388,6 +389,7 @@ console.error = function(...args) {
     const matRock = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.12, metalness: 0.3, dithering: true });
     matRock.onBeforeCompile = (shader) => {
         shader.uniforms.twilightGlow = { value: 0.0 };
+        shader.uniforms.emissiveBoost = { value: 1.0 };
         matRock.userData.shader = shader;
 
         shader.vertexShader = `
@@ -404,6 +406,7 @@ console.error = function(...args) {
 
         shader.fragmentShader = `
             uniform float twilightGlow;
+            uniform float emissiveBoost;
             varying float vGlow;
             ${shader.fragmentShader}
         `.replace(
@@ -427,7 +430,7 @@ console.error = function(...args) {
             float baseGlow = isGlower * 0.75;
             float duskBoost = twilightGlow * mix(0.3, 2.0, isGlower);
             // White inner-core sparkle makes them feel genuinely lit from inside
-            totalEmissiveRadiance = glowColor * (baseGlow + duskBoost) + vec3(1.0) * isGlower * 0.1;
+            totalEmissiveRadiance = (glowColor * (baseGlow + duskBoost) + vec3(1.0) * isGlower * 0.1) * emissiveBoost;
             `
         );
     };
@@ -1034,6 +1037,28 @@ console.error = function(...args) {
         instRocks.setColorAt(i, tempRockColor);
     }
 
+    // Glow halo sprites — cheap billboard circles behind glowing rocks (no bloom needed)
+    const glowHaloCanvas = document.createElement('canvas');
+    glowHaloCanvas.width = 64; glowHaloCanvas.height = 64;
+    const ghCtx = glowHaloCanvas.getContext('2d');
+    const grad = ghCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,0.7)');
+    grad.addColorStop(0.4, 'rgba(255,200,255,0.3)');
+    grad.addColorStop(1, 'rgba(255,100,255,0)');
+    ghCtx.fillStyle = grad;
+    ghCtx.fillRect(0, 0, 64, 64);
+    const glowHaloTex = new THREE.CanvasTexture(glowHaloCanvas);
+    const glowHaloMat = new THREE.SpriteMaterial({ map: glowHaloTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+    const GLOW_HALO_COUNT = Math.floor(ROCK_COUNT * 0.5);
+    const glowHalos = [];
+    for (let i = 0; i < GLOW_HALO_COUNT; i++) {
+        const sprite = new THREE.Sprite(glowHaloMat);
+        sprite.scale.set(12, 12, 1);
+        sprite.visible = false;
+        scene.add(sprite);
+        glowHalos.push(sprite);
+    }
+
     const flowerColors = [0xffffff, 0xffd700, 0xffa8d1, 0x4da9e8, 0xff6b6b]; // white, yellow, pink, blue, red
     const tempFlowerColor = new THREE.Color();
     for (let i = 0; i < FLOWER_COUNT; i++) {
@@ -1627,6 +1652,22 @@ console.error = function(...args) {
         }
         if (rocksUpdated) instRocks.instanceMatrix.needsUpdate = true;
 
+        // Update glow halos — only visible when bloom is disabled
+        if (lowNoBloom) {
+            for (let i = 0; i < GLOW_HALO_COUNT; i++) {
+                instRocks.getMatrixAt(i, dummy.matrix);
+                dummy.position.setFromMatrixPosition(dummy.matrix);
+                if (dummy.position.y > -500) {
+                    glowHalos[i].position.copy(dummy.position);
+                    glowHalos[i].visible = true;
+                } else {
+                    glowHalos[i].visible = false;
+                }
+            }
+        } else {
+            for (let i = 0; i < GLOW_HALO_COUNT; i++) glowHalos[i].visible = false;
+        }
+
         // Houses
         if (instHouses) {
             let housesUpdated = false;
@@ -1906,8 +1947,27 @@ console.error = function(...args) {
                 const ch = Math.floor(window.innerHeight * pr);
                 composer.setSize(cw, ch);
                 if (typeof bloomPass !== 'undefined') {
-                    bloomPass.enabled = true;
-                    bloomPass.setSize(lowHalfBloom ? Math.floor(cw / 2) : cw, lowHalfBloom ? Math.floor(ch / 2) : ch);
+                    if (lowNoBloom) {
+                        bloomPass.enabled = false;
+                    } else {
+                        bloomPass.enabled = true;
+                        bloomPass.setSize(lowHalfBloom ? Math.floor(cw / 2) : cw, lowHalfBloom ? Math.floor(ch / 2) : ch);
+                    }
+                }
+                // When bloom is off, boost rock emissive and instance colors to compensate
+                if (matRock.userData.shader) {
+                    matRock.userData.shader.uniforms.emissiveBoost.value = lowNoBloom ? 2.5 : 1.0;
+                }
+                if (lowNoBloom && instRocks.instanceColor && !instRocks.userData.colorsBoosted) {
+                    instRocks.userData.originalColors = instRocks.instanceColor.array.slice();
+                    const tempC = new THREE.Color();
+                    for (let i = 0; i < ROCK_COUNT; i++) {
+                        instRocks.getColorAt(i, tempC);
+                        tempC.multiplyScalar(1.8);
+                        instRocks.setColorAt(i, tempC);
+                    }
+                    instRocks.instanceColor.needsUpdate = true;
+                    instRocks.userData.colorsBoosted = true;
                 }
             }
 
@@ -1915,6 +1975,9 @@ console.error = function(...args) {
                 if (!renderer) return;
                 const perfPanel = document.getElementById('perf-toggles');
                 if (level === 'low') {
+                    lowNoBloom = true;
+                    matRock.blending = THREE.AdditiveBlending;
+                    matRock.needsUpdate = true;
                     applyLowSettings();
                     applyTerrainRes(128);
                     instHighClouds.visible = false;
@@ -1926,6 +1989,14 @@ console.error = function(...args) {
                     fpsCapEnabled = false;
                     lowPixelRatio = false;
                     lowHalfBloom = false;
+                    lowNoBloom = false;
+                    matRock.blending = THREE.NormalBlending;
+                    matRock.needsUpdate = true;
+                    if (instRocks.userData.colorsBoosted && instRocks.userData.originalColors) {
+                        instRocks.instanceColor.array.set(instRocks.userData.originalColors);
+                        instRocks.instanceColor.needsUpdate = true;
+                        instRocks.userData.colorsBoosted = false;
+                    }
                     instHighClouds.visible = true;
                     instBushes.visible = true;
                     applyTerrainRes(256);
@@ -3512,7 +3583,7 @@ console.error = function(...args) {
             nextNoteTime = audioCtx.currentTime + 0.1;
         }
         
-        while (nextNoteTime < audioCtx.currentTime + 0.2) {
+        while (nextNoteTime < audioCtx.currentTime + 0.5) {
             
             // On chord change
             if (sequenceTime % track.speed === 0) {
@@ -3550,7 +3621,7 @@ console.error = function(...args) {
                 arpIndex = 0;
             }
         }
-        musicTimerID = setTimeout(scheduleNotes, 50);
+        musicTimerID = setTimeout(scheduleNotes, 200);
     }
 
     document.getElementById('music-toggle').addEventListener('click', () => {
