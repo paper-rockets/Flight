@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta http-equiv="Permissions-Policy" content="interest-cohort=(), bluetooth=(), usb=(), serial=(), hid=()" />
   <title>Bizarro Land — Magical Flight</title>
   <style>
     :root { color-scheme: dark; }
@@ -359,7 +362,7 @@ console.error = function(...args) {
     staticSun.add(sunDisc);
 
     const lensflare = new Lensflare();
-    lensflare.addElement(new LensflareElement(textureFlare0, 2200, 0, dirLight.color));
+    lensflare.addElement(new LensflareElement(textureFlare0, 700, 0, dirLight.color));
     lensflare.addElement(new LensflareElement(textureFlare3, 60, 0.6));
     lensflare.addElement(new LensflareElement(textureFlare3, 70, 0.7));
     lensflare.addElement(new LensflareElement(textureFlare3, 120, 0.9));
