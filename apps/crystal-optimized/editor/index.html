@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Model Placement Editor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #1a1a2e; font-family: 'Segoe UI', system-ui, sans-serif; color: #e0e0e0; }
+canvas { display: block; }
+
+#sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; width: 280px;
+  background: #16213e; border-right: 1px solid #0f3460;
+  display: flex; flex-direction: column; z-index: 100;
+  overflow-y: auto;
+}
+#sidebar h2 { padding: 14px 16px 8px; font-size: 15px; color: #e94560; text-transform: uppercase; letter-spacing: 1px; }
+#sidebar .section { padding: 8px 12px; border-bottom: 1px solid #0f3460; }
+#sidebar .section-title { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+
+.btn {
+  display: inline-block; padding: 6px 12px; margin: 2px;
+  background: #0f3460; border: 1px solid #1a4a8a; border-radius: 4px;
+  color: #e0e0e0; cursor: pointer; font-size: 12px; transition: background 0.15s;
+}
+.btn:hover { background: #1a4a8a; }
+.btn.active { background: #e94560; border-color: #e94560; }
+.btn.danger { background: #8b0000; border-color: #a00; }
+.btn.danger:hover { background: #a00; }
+.btn.success { background: #0a6640; border-color: #0d8050; }
+.btn.success:hover { background: #0d8050; }
+
+#object-list { flex: 1; overflow-y: auto; min-height: 100px; }
+.obj-item {
+  padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #0f3460;
+  display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+}
+.obj-item:hover { background: #1a3a6e; }
+.obj-item.selected { background: #e94560; color: white; }
+.obj-item .obj-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.obj-item .obj-delete { opacity: 0.5; cursor: pointer; font-size: 16px; margin-left: 8px; }
+.obj-item .obj-delete:hover { opacity: 1; color: #ff4444; }
+
+#transform-panel { padding: 8px 12px; }
+#transform-panel label { display: block; font-size: 11px; color: #888; margin-top: 6px; }
+#transform-panel .row { display: flex; gap: 4px; }
+#transform-panel input {
+  width: 100%; padding: 4px 6px; background: #0a0a1a; border: 1px solid #333;
+  border-radius: 3px; color: #e0e0e0; font-size: 12px; font-family: monospace;
+}
+
+#drop-zone {
+  position: fixed; inset: 0; background: rgba(233,69,96,0.15);
+  border: 3px dashed #e94560; display: none; z-index: 999;
+  justify-content: center; align-items: center; font-size: 24px; color: #e94560;
+}
+#drop-zone.active { display: flex; }
+
+#toolbar {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px; z-index: 100;
+}
+
+#status {
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  background: #16213e; border: 1px solid #0f3460; border-radius: 6px;
+  padding: 6px 16px; font-size: 12px; z-index: 100; opacity: 0; transition: opacity 0.3s;
+}
+#status.show { opacity: 1; }
+
+#grid-toggle, #snap-toggle {
+  position: fixed; z-index: 100;
+}
+
+.shortcut { font-size: 10px; opacity: 0.5; margin-left: 4px; }
+
+#help-panel {
+  position: fixed; right: 12px; bottom: 12px; z-index: 100;
+  background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+  padding: 12px 16px; font-size: 11px; line-height: 1.6; max-width: 240px;
+}
+#help-panel kbd {
+  background: #0f3460; border: 1px solid #1a4a8a; border-radius: 3px;
+  padding: 1px 5px; font-family: monospace; font-size: 10px;
+}
+</style>
+</head>
+<body>
+
+<div id="drop-zone">Drop GLB/GLTF files here</div>
+
+<div id="sidebar">
+  <h2>Model Editor</h2>
+
+  <div class="section">
+    <div class="section-title">Import</div>
+    <button class="btn" id="btn-import" title="Or drag & drop onto viewport">+ Add Model</button>
+    <input type="file" id="file-input" accept=".glb,.gltf" multiple style="display:none">
+  </div>
+
+  <div class="section">
+    <div class="section-title">Scene</div>
+    <button class="btn success" id="btn-save">Save Scene</button>
+    <button class="btn" id="btn-load">Load Scene</button>
+    <button class="btn success" id="btn-git-push">Git Push</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Objects</div>
+    <div id="object-list"></div>
+  </div>
+
+  <div class="section" id="transform-panel" style="display:none">
+    <div class="section-title">Transform</div>
+    <label>Position</label>
+    <div class="row">
+      <input id="pos-x" type="number" step="0.1" placeholder="X">
+      <input id="pos-y" type="number" step="0.1" placeholder="Y">
+      <input id="pos-z" type="number" step="0.1" placeholder="Z">
+    </div>
+    <label>Rotation (deg)</label>
+    <div class="row">
+      <input id="rot-x" type="number" step="1" placeholder="X">
+      <input id="rot-y" type="number" step="1" placeholder="Y">
+      <input id="rot-z" type="number" step="1" placeholder="Z">
+    </div>
+    <label>Scale</label>
+    <div class="row">
+      <input id="scl-x" type="number" step="0.1" placeholder="X" min="0.01">
+      <input id="scl-y" type="number" step="0.1" placeholder="Y" min="0.01">
+      <input id="scl-z" type="number" step="0.1" placeholder="Z" min="0.01">
+    </div>
+    <div style="margin-top:8px">
+      <button class="btn" id="btn-duplicate">Duplicate</button>
+      <button class="btn danger" id="btn-delete-sel">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toolbar">
+  <button class="btn active" id="mode-translate">Move <span class="shortcut">G</span></button>
+  <button class="btn" id="mode-rotate">Rotate <span class="shortcut">R</span></button>
+  <button class="btn" id="mode-scale">Scale <span class="shortcut">S</span></button>
+  <button class="btn" id="btn-snap">Snap: OFF <span class="shortcut">X</span></button>
+  <button class="btn" id="btn-grid">Grid: ON</button>
+  <button class="btn" id="btn-space">Local <span class="shortcut">Q</span></button>
+</div>
+
+<div id="status"></div>
+
+<div id="help-panel">
+  <strong>Controls</strong><br>
+  <kbd>G</kbd> Move &nbsp; <kbd>R</kbd> Rotate &nbsp; <kbd>S</kbd> Scale<br>
+  <kbd>Q</kbd> Local/World &nbsp; <kbd>X</kbd> Snap toggle<br>
+  <kbd>Del</kbd> Delete &nbsp; <kbd>D</kbd> Duplicate<br>
+  <kbd>Ctrl+S</kbd> Save &nbsp; <kbd>Ctrl+Z</kbd> Undo<br>
+  <kbd>RMB</kbd> Orbit &nbsp; <kbd>MMB</kbd> Pan &nbsp; <kbd>Scroll</kbd> Zoom<br>
+  <kbd>F</kbd> Focus selected &nbsp; <kbd>H</kbd> Toggle help
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ── State ──
+const placedObjects = [];
+let selectedObject = null;
+let snapEnabled = false;
+let undoStack = [];
+const MAX_UNDO = 50;
+const gltfLoader = new GLTFLoader();
+
+// ── Scene Setup ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
+camera.position.set(10, 10, 10);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+// ── Lights ──
+const ambientLight = new THREE.AmbientLight(0x404060, 1.5);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffeedd, 2);
+dirLight.position.set(10, 20, 10);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 100;
+dirLight.shadow.camera.left = -30;
+dirLight.shadow.camera.right = 30;
+dirLight.shadow.camera.top = 30;
+dirLight.shadow.camera.bottom = -30;
+scene.add(dirLight);
+
+const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d1b, 0.8);
+scene.add(hemiLight);
+
+// ── Grid ──
+const gridHelper = new THREE.GridHelper(100, 100, 0x444466, 0x222244);
+scene.add(gridHelper);
+
+// ── Ground plane (for raycasting) ──
+const groundGeo = new THREE.PlaneGeometry(200, 200);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a2a4a, roughness: 0.9 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ── Controls ──
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = 0.08;
+orbitControls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+
+const transformControls = new TransformControls(camera, renderer.domElement);
+transformControls.addEventListener('dragging-changed', (e) => {
+  orbitControls.enabled = !e.value;
+  if (!e.value && selectedObject) {
+    updateTransformPanel();
+    pushUndo();
+  }
+});
+transformControls.addEventListener('change', () => {
+  if (selectedObject) updateTransformPanel();
+});
+scene.add(transformControls.getHelper());
+
+// ── Raycaster for picking ──
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  if (transformControls.dragging) return;
+
+  mouse.x = ((e.clientX - 280) / (window.innerWidth - 280)) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  if (e.clientX < 280) return;
+
+  raycaster.setFromCamera(mouse, camera);
+
+  const meshes = [];
+  placedObjects.forEach(obj => {
+    obj.model.traverse(c => { if (c.isMesh) meshes.push(c); });
+  });
+
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length > 0) {
+    let hitObj = hits[0].object;
+    while (hitObj.parent && !hitObj.userData._editorRoot) hitObj = hitObj.parent;
+    const entry = placedObjects.find(o => o.model === hitObj);
+    if (entry) selectObject(entry);
+  } else {
+    deselectObject();
+  }
+});
+
+// ── Model Loading ──
+function loadModelFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const arrayBuffer = e.target.result;
+      const base64 = btoa(new Uint8Array(arrayBuffer).reduce((s, b) => s + String.fromCharCode(b), ''));
+
+      fetch('/api/save-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, data: base64 })
+      }).then(r => r.json()).then(() => {
+        gltfLoader.parse(arrayBuffer, '', (gltf) => {
+          resolve({ scene: gltf.scene, animations: gltf.animations, filename: file.name });
+        }, reject);
+      }).catch(reject);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function loadModelFromURL(url, filename) {
+  return new Promise((resolve, reject) => {
+    gltfLoader.load(url, (gltf) => {
+      resolve({ scene: gltf.scene, animations: gltf.animations, filename });
+    }, undefined, reject);
+  });
+}
+
+async function addModelToScene(modelData, transform = null) {
+  const model = modelData.scene;
+  model.userData._editorRoot = true;
+  model.userData._filename = modelData.filename;
+
+  model.traverse(c => {
+    if (c.isMesh) {
+      c.castShadow = true;
+      c.receiveShadow = true;
+    }
+  });
+
+  if (transform) {
+    model.position.set(transform.position.x, transform.position.y, transform.position.z);
+    model.rotation.set(transform.rotation.x, transform.rotation.y, transform.rotation.z);
+    model.scale.set(transform.scale.x, transform.scale.y, transform.scale.z);
+  } else {
+    // Center on camera target, on ground
+    const target = orbitControls.target.clone();
+    model.position.set(target.x, 0, target.z);
+  }
+
+  scene.add(model);
+
+  const entry = {
+    id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+    name: modelData.filename.replace(/\.(glb|gltf)$/i, ''),
+    filename: modelData.filename,
+    model: model,
+    mixer: null
+  };
+
+  if (modelData.animations && modelData.animations.length > 0) {
+    entry.mixer = new THREE.AnimationMixer(model);
+    modelData.animations.forEach(clip => entry.mixer.clipAction(clip).play());
+  }
+
+  placedObjects.push(entry);
+  refreshObjectList();
+  selectObject(entry);
+  pushUndo();
+  showStatus(`Added: ${entry.name}`);
+  return entry;
+}
+
+// ── Selection ──
+function selectObject(entry) {
+  selectedObject = entry;
+  transformControls.attach(entry.model);
+  document.getElementById('transform-panel').style.display = 'block';
+  updateTransformPanel();
+  refreshObjectList();
+}
+
+function deselectObject() {
+  selectedObject = null;
+  transformControls.detach();
+  document.getElementById('transform-panel').style.display = 'none';
+  refreshObjectList();
+}
+
+function updateTransformPanel() {
+  if (!selectedObject) return;
+  const m = selectedObject.model;
+  const deg = THREE.MathUtils.radToDeg;
+  document.getElementById('pos-x').value = m.position.x.toFixed(2);
+  document.getElementById('pos-y').value = m.position.y.toFixed(2);
+  document.getElementById('pos-z').value = m.position.z.toFixed(2);
+  document.getElementById('rot-x').value = deg(m.rotation.x).toFixed(1);
+  document.getElementById('rot-y').value = deg(m.rotation.y).toFixed(1);
+  document.getElementById('rot-z').value = deg(m.rotation.z).toFixed(1);
+  document.getElementById('scl-x').value = m.scale.x.toFixed(2);
+  document.getElementById('scl-y').value = m.scale.y.toFixed(2);
+  document.getElementById('scl-z').value = m.scale.z.toFixed(2);
+}
+
+// Manual input from panel
+['pos-x','pos-y','pos-z'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    if (!selectedObject) return;
+    const v = parseFloat(e.target.value) || 0;
+    ['x','y','z'].forEach((axis, j) => { if (i === j) selectedObject.model.position[axis] = v; });
+    pushUndo();
+  });
+});
+['rot-x','rot-y','rot-z'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    if (!selectedObject) return;
+    const v = THREE.MathUtils.degToRad(parseFloat(e.target.value) || 0);
+    ['x','y','z'].forEach((axis, j) => { if (i === j) selectedObject.model.rotation[axis] = v; });
+    pushUndo();
+  });
+});
+['scl-x','scl-y','scl-z'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    if (!selectedObject) return;
+    const v = Math.max(0.01, parseFloat(e.target.value) || 1);
+    ['x','y','z'].forEach((axis, j) => { if (i === j) selectedObject.model.scale[axis] = v; });
+    pushUndo();
+  });
+});
+
+// ── Object List ──
+function refreshObjectList() {
+  const list = document.getElementById('object-list');
+  list.innerHTML = '';
+  placedObjects.forEach((entry) => {
+    const div = document.createElement('div');
+    div.className = 'obj-item' + (selectedObject === entry ? ' selected' : '');
+    div.innerHTML = `<span class="obj-name">${entry.name}</span><span class="obj-delete" title="Delete">×</span>`;
+    div.querySelector('.obj-name').addEventListener('click', () => selectObject(entry));
+    div.querySelector('.obj-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteObject(entry);
+    });
+    list.appendChild(div);
+  });
+}
+
+function deleteObject(entry) {
+  scene.remove(entry.model);
+  entry.model.traverse(c => {
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) {
+      if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+      else c.material.dispose();
+    }
+  });
+  const idx = placedObjects.indexOf(entry);
+  if (idx > -1) placedObjects.splice(idx, 1);
+  if (selectedObject === entry) deselectObject();
+  refreshObjectList();
+  pushUndo();
+  showStatus(`Deleted: ${entry.name}`);
+}
+
+function duplicateSelected() {
+  if (!selectedObject) return;
+  const src = selectedObject;
+  loadModelFromURL(`models/${src.filename}`, src.filename).then(data => {
+    addModelToScene(data, {
+      position: { x: src.model.position.x + 2, y: src.model.position.y, z: src.model.position.z },
+      rotation: { x: src.model.rotation.x, y: src.model.rotation.y, z: src.model.rotation.z },
+      scale: { x: src.model.scale.x, y: src.model.scale.y, z: src.model.scale.z }
+    });
+  });
+}
+
+// ── Save / Load ──
+function getSceneData() {
+  return {
+    objects: placedObjects.map(entry => ({
+      id: entry.id,
+      name: entry.name,
+      filename: entry.filename,
+      position: { x: entry.model.position.x, y: entry.model.position.y, z: entry.model.position.z },
+      rotation: { x: entry.model.rotation.x, y: entry.model.rotation.y, z: entry.model.rotation.z },
+      scale: { x: entry.model.scale.x, y: entry.model.scale.y, z: entry.model.scale.z }
+    }))
+  };
+}
+
+async function saveScene() {
+  const data = getSceneData();
+  await fetch('/api/save-scene', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  showStatus(`Scene saved (${data.objects.length} objects)`);
+}
+
+async function loadScene() {
+  const resp = await fetch('/api/load-scene', { method: 'POST', body: '{}' });
+  const data = await resp.json();
+  if (!data.objects || data.objects.length === 0) {
+    showStatus('No saved scene found');
+    return;
+  }
+
+  // Clear existing
+  [...placedObjects].forEach(e => {
+    scene.remove(e.model);
+    e.model.traverse(c => {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) {
+        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+        else c.material.dispose();
+      }
+    });
+  });
+  placedObjects.length = 0;
+  deselectObject();
+
+  for (const obj of data.objects) {
+    try {
+      const modelData = await loadModelFromURL(`models/${obj.filename}`, obj.filename);
+      const entry = await addModelToScene(modelData, obj);
+      entry.id = obj.id;
+      entry.name = obj.name;
+    } catch (e) {
+      console.warn(`Failed to load ${obj.filename}:`, e);
+      showStatus(`Failed to load: ${obj.filename}`);
+    }
+  }
+  refreshObjectList();
+  showStatus(`Loaded scene (${data.objects.length} objects)`);
+}
+
+async function gitPush() {
+  showStatus('Saving & pushing to git...');
+  await saveScene();
+  const resp = await fetch('/api/git-push', { method: 'POST', body: '{}' });
+  const data = await resp.json();
+  if (data.ok) {
+    showStatus('Pushed to git successfully!');
+  } else {
+    showStatus('Git push issue — check terminal');
+    console.warn('Git push details:', data.details);
+  }
+}
+
+// ── Undo ──
+function pushUndo() {
+  undoStack.push(JSON.stringify(getSceneData()));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+async function undo() {
+  if (undoStack.length < 2) return;
+  undoStack.pop(); // current state
+  const prev = undoStack[undoStack.length - 1];
+  const data = JSON.parse(prev);
+
+  // Re-apply transforms without reloading models (fast undo)
+  data.objects.forEach(saved => {
+    const entry = placedObjects.find(e => e.id === saved.id);
+    if (entry) {
+      entry.model.position.set(saved.position.x, saved.position.y, saved.position.z);
+      entry.model.rotation.set(saved.rotation.x, saved.rotation.y, saved.rotation.z);
+      entry.model.scale.set(saved.scale.x, saved.scale.y, saved.scale.z);
+    }
+  });
+  if (selectedObject) updateTransformPanel();
+  showStatus('Undo');
+}
+
+// ── Drag & Drop ──
+const dropZone = document.getElementById('drop-zone');
+
+window.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('active');
+});
+window.addEventListener('dragleave', (e) => {
+  if (e.relatedTarget === null) dropZone.classList.remove('active');
+});
+window.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('active');
+  const files = [...e.dataTransfer.files].filter(f =>
+    f.name.toLowerCase().endsWith('.glb') || f.name.toLowerCase().endsWith('.gltf')
+  );
+  for (const file of files) {
+    try {
+      const data = await loadModelFromFile(file);
+      await addModelToScene(data);
+    } catch (err) {
+      console.error('Failed to load:', file.name, err);
+      showStatus(`Error loading ${file.name}`);
+    }
+  }
+});
+
+// ── File Input ──
+const fileInput = document.getElementById('file-input');
+document.getElementById('btn-import').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async () => {
+  for (const file of fileInput.files) {
+    try {
+      const data = await loadModelFromFile(file);
+      await addModelToScene(data);
+    } catch (err) {
+      console.error('Failed to load:', file.name, err);
+    }
+  }
+  fileInput.value = '';
+});
+
+// ── Toolbar ──
+const modeButtons = { translate: 'mode-translate', rotate: 'mode-rotate', scale: 'mode-scale' };
+function setTransformMode(mode) {
+  transformControls.setMode(mode);
+  Object.entries(modeButtons).forEach(([m, id]) => {
+    document.getElementById(id).classList.toggle('active', m === mode);
+  });
+}
+document.getElementById('mode-translate').addEventListener('click', () => setTransformMode('translate'));
+document.getElementById('mode-rotate').addEventListener('click', () => setTransformMode('rotate'));
+document.getElementById('mode-scale').addEventListener('click', () => setTransformMode('scale'));
+
+document.getElementById('btn-snap').addEventListener('click', () => {
+  snapEnabled = !snapEnabled;
+  document.getElementById('btn-snap').textContent = snapEnabled ? 'Snap: ON' : 'Snap: OFF';
+  transformControls.setTranslationSnap(snapEnabled ? 1 : null);
+  transformControls.setRotationSnap(snapEnabled ? THREE.MathUtils.degToRad(15) : null);
+  transformControls.setScaleSnap(snapEnabled ? 0.25 : null);
+});
+
+document.getElementById('btn-grid').addEventListener('click', () => {
+  gridHelper.visible = !gridHelper.visible;
+  document.getElementById('btn-grid').textContent = gridHelper.visible ? 'Grid: ON' : 'Grid: OFF';
+});
+
+document.getElementById('btn-space').addEventListener('click', () => {
+  const space = transformControls.space === 'local' ? 'world' : 'local';
+  transformControls.setSpace(space);
+  document.getElementById('btn-space').textContent = space === 'local' ? 'Local' : 'World';
+});
+
+document.getElementById('btn-save').addEventListener('click', saveScene);
+document.getElementById('btn-load').addEventListener('click', loadScene);
+document.getElementById('btn-git-push').addEventListener('click', gitPush);
+document.getElementById('btn-duplicate').addEventListener('click', duplicateSelected);
+document.getElementById('btn-delete-sel').addEventListener('click', () => { if (selectedObject) deleteObject(selectedObject); });
+
+// ── Keyboard ──
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+
+  if (e.key === 'g' || e.key === 'G') setTransformMode('translate');
+  if (e.key === 'r' && !e.ctrlKey) setTransformMode('rotate');
+  if (e.key === 's' && !e.ctrlKey) setTransformMode('scale');
+  if (e.key === 'q' || e.key === 'Q') document.getElementById('btn-space').click();
+  if (e.key === 'x' || e.key === 'X') document.getElementById('btn-snap').click();
+  if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedObject) deleteObject(selectedObject); }
+  if (e.key === 'd' || e.key === 'D') duplicateSelected();
+  if (e.key === 'Escape') deselectObject();
+  if (e.key === 'h' || e.key === 'H') {
+    const hp = document.getElementById('help-panel');
+    hp.style.display = hp.style.display === 'none' ? 'block' : 'none';
+  }
+  if (e.key === 'f' || e.key === 'F') {
+    if (selectedObject) {
+      const box = new THREE.Box3().setFromObject(selectedObject.model);
+      const center = box.getCenter(new THREE.Vector3());
+      orbitControls.target.copy(center);
+    }
+  }
+  if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveScene(); }
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+});
+
+// ── Status ──
+let statusTimeout;
+function showStatus(msg) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Resize ──
+function onResize() {
+  const w = window.innerWidth - 280;
+  const h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  renderer.domElement.style.marginLeft = '280px';
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ── Render Loop ──
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  orbitControls.update();
+  placedObjects.forEach(e => { if (e.mixer) e.mixer.update(dt); });
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── Auto-load saved scene on startup ──
+loadScene();
+
+</script>
+</body>
+</html>
