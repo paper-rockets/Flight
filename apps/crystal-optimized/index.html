@@ -1667,22 +1667,6 @@ console.error = function(...args) {
         }
         if (rocksUpdated) instRocks.instanceMatrix.needsUpdate = true;
 
-        // Update glow halos — only visible when bloom is disabled
-        if (lowNoBloom) {
-            for (let i = 0; i < GLOW_HALO_COUNT; i++) {
-                instRocks.getMatrixAt(i, dummy.matrix);
-                dummy.position.setFromMatrixPosition(dummy.matrix);
-                if (dummy.position.y > -500) {
-                    glowHalos[i].position.copy(dummy.position);
-                    glowHalos[i].visible = true;
-                } else {
-                    glowHalos[i].visible = false;
-                }
-            }
-        } else {
-            for (let i = 0; i < GLOW_HALO_COUNT; i++) glowHalos[i].visible = false;
-        }
-
         // Houses
         if (instHouses) {
             let housesUpdated = false;
@@ -1962,27 +1946,10 @@ console.error = function(...args) {
                 const ch = Math.floor(window.innerHeight * pr);
                 composer.setSize(cw, ch);
                 if (typeof bloomPass !== 'undefined') {
-                    if (lowNoBloom) {
-                        bloomPass.enabled = false;
-                    } else {
-                        bloomPass.enabled = true;
-                        bloomPass.setSize(lowHalfBloom ? Math.floor(cw / 2) : cw, lowHalfBloom ? Math.floor(ch / 2) : ch);
-                    }
-                }
-                // When bloom is off, boost rock emissive and instance colors to compensate
-                if (matRock.userData.shader) {
-                    matRock.userData.shader.uniforms.emissiveBoost.value = lowNoBloom ? 5.0 : 1.0;
-                }
-                if (lowNoBloom && instRocks.instanceColor && !instRocks.userData.colorsBoosted) {
-                    instRocks.userData.originalColors = instRocks.instanceColor.array.slice();
-                    const tempC = new THREE.Color();
-                    for (let i = 0; i < ROCK_COUNT; i++) {
-                        instRocks.getColorAt(i, tempC);
-                        tempC.multiplyScalar(2.5);
-                        instRocks.setColorAt(i, tempC);
-                    }
-                    instRocks.instanceColor.needsUpdate = true;
-                    instRocks.userData.colorsBoosted = true;
+                    bloomPass.enabled = true;
+                    const bloomW = lowHalfBloom ? Math.floor(cw / 2) : Math.floor(cw / 2);
+                    const bloomH = lowHalfBloom ? Math.floor(ch / 2) : Math.floor(ch / 2);
+                    bloomPass.setSize(bloomW, bloomH);
                 }
             }
 
@@ -1990,7 +1957,6 @@ console.error = function(...args) {
                 if (!renderer) return;
                 const perfPanel = document.getElementById('perf-toggles');
                 if (level === 'low') {
-                    lowNoBloom = true;
                     applyLowSettings();
                     applyTerrainRes(128);
                     instHighClouds.visible = false;
@@ -2002,12 +1968,6 @@ console.error = function(...args) {
                     fpsCapEnabled = false;
                     lowPixelRatio = false;
                     lowHalfBloom = false;
-                    lowNoBloom = false;
-                    if (instRocks.userData.colorsBoosted && instRocks.userData.originalColors) {
-                        instRocks.instanceColor.array.set(instRocks.userData.originalColors);
-                        instRocks.instanceColor.needsUpdate = true;
-                        instRocks.userData.colorsBoosted = false;
-                    }
                     instHighClouds.visible = true;
                     instBushes.visible = true;
                     applyTerrainRes(256);
