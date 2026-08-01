@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Build apps
+        run: |
+          mkdir -p public_html
+          
+          # Setup crystal-optimized
+          cp -R apps/crystal-optimized public_html/crystal-optimized
+          
+          # Build variation-1
+          cd apps/variation-1
+          npm ci
+          npx vite build --base=/Flight/variation-1/
+          cp -R dist ../../public_html/variation-1
+          cd ../../
+          
+          # Create a simple index at root
+          echo '<h1>Flight Apps</h1><ul><li><a href="crystal-optimized/">Crystal Optimized</a></li><li><a href="variation-1/">Variation 1</a></li></ul>' > public_html/index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './public_html'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
