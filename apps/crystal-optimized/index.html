@@ -203,7 +203,6 @@ console.error = function(...args) {
   <script type="module">
     import * as THREE from 'three';
     import { initTerrainEditor } from './TerrainEditor.js';
-    import { createParticleWhale } from './particleWhaleGenerator.js';
     import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -1389,16 +1388,6 @@ console.error = function(...args) {
         }
         mesh.instanceMatrix.needsUpdate = true;
     });
-
-    // ==========================================
-    // 6.25 AMBIENT SKY WHALE
-    // ==========================================
-    const skyWhales = [];
-    const whalePod = new THREE.Group();
-
-    // ==========================================
-    // WHALE
-    // ==========================================
 
     // ==========================================
     // WIND TRAILS
@@ -3242,23 +3231,6 @@ console.error = function(...args) {
         }
 
         // Deep clouds track player (Removed)
-
-        // Giant Parallel Whale — close enough to feel cinematic
-        // Whale flies freely on its own massive circular path
-        whalePod.translateZ(30 * dt); // Move forward
-        whalePod.rotateY(0.04 * dt); // Slow gentle turn to keep it orbiting the islands
-        
-        // Organic vertical bob
-        whalePod.position.y += Math.sin(time * 0.5) * 5 * dt;
-        
-        // Pitch slightly with the bob
-        whalePod.rotateX(Math.cos(time * 0.5) * 0.05 * dt);
-
-        skyWhales.forEach(w => {
-            if (w.mat.userData.shader) {
-                w.mat.userData.shader.uniforms.uTime.value = time * 0.5 + w.phase;
-            }
-        });
 
         updateCapybaras(playerGrp.position, dt);
 
