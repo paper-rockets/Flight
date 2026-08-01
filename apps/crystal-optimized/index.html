@@ -314,7 +314,7 @@ console.error = function(...args) {
 
 
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 2.0, 3000);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 2.0, 20000);
     camera.position.set(0, 9, 26);
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, logarithmicDepthBuffer: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -347,12 +347,20 @@ console.error = function(...args) {
     const textureFlare0 = flareTextureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/lensflare/lensflare0.png');
     const textureFlare3 = flareTextureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/lensflare/lensflare3.png');
     
+    // Reference direction for the sun — mutable so it can lower with time of day
+    const SUN_WORLD = new THREE.Vector3(0, 2500, -20000); // start just above horizon (day)
+
     const staticSun = new THREE.Group();
-    staticSun.position.set(0, 1500, -20000);
+    staticSun.position.copy(SUN_WORLD);
     scene.add(staticSun);
 
+    const sunDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
+    const sunDisc = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 32), sunDiscMat);
+    sunDisc.frustumCulled = false;
+    staticSun.add(sunDisc);
+
     const lensflare = new Lensflare();
-    lensflare.addElement(new LensflareElement(textureFlare0, 1600, 0, dirLight.color));
+    lensflare.addElement(new LensflareElement(textureFlare0, 2200, 0, dirLight.color));
     lensflare.addElement(new LensflareElement(textureFlare3, 60, 0.6));
     lensflare.addElement(new LensflareElement(textureFlare3, 70, 0.7));
     lensflare.addElement(new LensflareElement(textureFlare3, 120, 0.9));
@@ -3019,6 +3027,18 @@ console.error = function(...args) {
         dirLight.color.lerp(new THREE.Color(target.dir), dt * 2);
         dirLight.intensity += (target.dirI - dirLight.intensity) * dt * 2;
         starMaterial.opacity += (target.starOp - starMaterial.opacity) * dt * 2;
+
+        // Auto-lower sun: day=high, dusk=horizon, twilight=below
+        const _sunTargetY = timePhase === 2 ? -1800 : (timePhase === 1 ? 500 : 2500);
+        SUN_WORLD.y += (_sunTargetY - SUN_WORLD.y) * dt * 0.3;
+
+        // Sun: keep staticSun within camera.far by projecting along the fixed world direction
+        const _toSun = SUN_WORLD.clone().sub(camera.position).normalize();
+        staticSun.position.copy(camera.position).addScaledVector(_toSun, camera.far * 0.85);
+
+        // dirLight tracks from player toward sun direction (spec: 2000 units out)
+        const _toSunFromPlayer = SUN_WORLD.clone().sub(playerGrp.position).normalize();
+        dirLight.position.copy(playerGrp.position).addScaledVector(_toSunFromPlayer, 2000);
 
         // Twilight Glow logic
         if (typeof matCrystal !== 'undefined' && matCrystal.userData.shader) {

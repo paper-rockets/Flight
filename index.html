@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bizarro Land — Magical Flight</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a0533 0%, #0d1b2a 40%, #1b2838 100%);
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #e0d8f0; padding: 2rem;
+  }
+  h1 { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 2px; }
+  h1 span { color: #cc88ff; font-weight: 600; }
+  .sub { color: #8899bb; font-size: 1.1rem; margin-bottom: 3rem; }
+  .games { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+  .card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 2rem; width: 340px;
+    text-decoration: none; color: inherit; transition: all 0.3s;
+  }
+  .card:hover { background: rgba(255,255,255,0.08); border-color: rgba(200,140,255,0.3); transform: translateY(-4px); }
+  .card h2 { font-size: 1.3rem; font-weight: 500; margin-bottom: 0.5rem; }
+  .card .tag { display: inline-block; font-size: 0.7rem; padding: 3px 10px; border-radius: 20px; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .tag.original { background: rgba(0,200,150,0.15); color: #66ddbb; }
+  .tag.optimized { background: rgba(200,100,255,0.15); color: #cc88ff; }
+  .card p { font-size: 0.9rem; color: #8899bb; line-height: 1.6; }
+  .card .play { display: inline-block; margin-top: 1.2rem; font-size: 0.85rem; color: #cc88ff; font-weight: 500; }
+  .card:hover .play { text-decoration: underline; }
+  footer { margin-top: 3rem; font-size: 0.75rem; color: #556; }
+  footer a { color: #8899bb; }
+</style>
+</head>
+<body>
+  <h1>Bizarro Land <span>Magical Flight</span></h1>
+  <p class="sub">Choose a version to play</p>
+  <div class="games">
+    <a class="card" href="apps/variation-1/">
+      <span class="tag original">Original</span>
+      <h2>Variation 1</h2>
+      <p>The original Bizarro Land flight experience with full features, terrain editor, and all visual effects.</p>
+      <span class="play">Play now &rarr;</span>
+    </a>
+    <a class="card" href="apps/crystal-optimized/">
+      <span class="tag optimized">Optimized</span>
+      <h2>Crystal Optimized</h2>
+      <p>Performance-tuned build with vivid crystal glow, visible sun with lensflare, doubled capybaras, and mobile-friendly quality settings.</p>
+      <span class="play">Play now &rarr;</span>
+    </a>
+  </div>
+  <footer>by <a href="https://github.com/paper-rockets">paper-rockets</a></footer>
+</body>
+</html>
