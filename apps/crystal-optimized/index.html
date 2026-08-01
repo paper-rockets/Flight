@@ -136,6 +136,7 @@ console.error = function(...args) {
       <button id="bloom-res-toggle">Bloom: Full Res</button>
       <button id="terrain-hz-toggle">Terrain: 15Hz</button>
       <button id="fps-cap-toggle">FPS Cap: OFF</button>
+      <button id="half-rocks-toggle">Rocks: Full</button>
     </div>
   </div>
   <div id="fps-counter" style="position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; z-index: 10; pointer-events: none;">0 FPS</div>
@@ -227,6 +228,7 @@ console.error = function(...args) {
     let lowTerrainRate = false;
     let fpsCapEnabled = false;
     let fpsCap30Last = 0;
+    let halfRocksEnabled = false;
     let isPhotoMode = false;
     let isFlightPaused = false;
     let photoControls = null;
@@ -1958,6 +1960,11 @@ console.error = function(...args) {
                 fpsCap30Last = 0;
                 document.getElementById('fps-cap-toggle').innerText = `FPS Cap: ${fpsCapEnabled ? '30' : 'OFF'}`;
             });
+            document.getElementById('half-rocks-toggle').addEventListener('click', () => {
+                halfRocksEnabled = !halfRocksEnabled;
+                instRocks.count = halfRocksEnabled ? Math.floor(ROCK_COUNT / 2) : ROCK_COUNT;
+                document.getElementById('half-rocks-toggle').innerText = `Rocks: ${halfRocksEnabled ? 'Half' : 'Full'}`;
+            });
 
     // Load Kiki GLTF Model
     const gltfLoader = new GLTFLoader();
@@ -2305,7 +2312,6 @@ console.error = function(...args) {
         const dispFlex = uiVisible ? 'flex' : 'none';
 
         // document.getElementById('fps-counter').style.display = disp;
-        document.getElementById('time-toggle').style.display = disp;
 
         // The terrain editor handles its own visibility state.
         const terrainEditorUI = document.getElementById('terrain-editor-ui');
@@ -2328,7 +2334,7 @@ console.error = function(...args) {
         const settingsBtns = document.getElementById('settings-controls').children;
         for(let i=0; i<settingsBtns.length; i++) {
             const btn = settingsBtns[i];
-            if (btn.id !== 'hide-ui-toggle' && btn.id !== 'fullscreen-toggle') {
+            if (btn.id !== 'hide-ui-toggle' && btn.id !== 'fullscreen-toggle' && btn.id !== 'time-toggle') {
                 if (!uiVisible) {
                     btn.dataset.originalDisplay = btn.style.display || getComputedStyle(btn).display;
                     btn.style.display = 'none';
