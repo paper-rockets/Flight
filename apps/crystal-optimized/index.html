@@ -2427,6 +2427,9 @@ console.error = function(...args) {
         // PC controls hint
         const pcHint = document.getElementById('pc-controls-hint');
         if (pcHint) pcHint.style.display = uiVisible ? '' : 'none';
+
+        // Time toggle must ALWAYS stay visible
+        document.getElementById('time-toggle').style.display = 'block';
     }
     window.addEventListener('keyup', e => {
         if(e.key.toLowerCase() === 'w' || e.key === 'ArrowUp') keys.w = false;
