@@ -1052,18 +1052,21 @@ console.error = function(...args) {
     glowHaloCanvas.width = 64; glowHaloCanvas.height = 64;
     const ghCtx = glowHaloCanvas.getContext('2d');
     const grad = ghCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(255,255,255,0.7)');
-    grad.addColorStop(0.4, 'rgba(255,200,255,0.3)');
-    grad.addColorStop(1, 'rgba(255,100,255,0)');
+    grad.addColorStop(0, 'rgba(255,255,255,1.0)');
+    grad.addColorStop(0.3, 'rgba(255,255,255,0.6)');
+    grad.addColorStop(0.6, 'rgba(255,255,255,0.2)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
     ghCtx.fillStyle = grad;
     ghCtx.fillRect(0, 0, 64, 64);
     const glowHaloTex = new THREE.CanvasTexture(glowHaloCanvas);
-    const glowHaloMat = new THREE.SpriteMaterial({ map: glowHaloTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     const GLOW_HALO_COUNT = Math.floor(ROCK_COUNT * 0.5);
     const glowHalos = [];
+    const haloTempColor = new THREE.Color();
     for (let i = 0; i < GLOW_HALO_COUNT; i++) {
-        const sprite = new THREE.Sprite(glowHaloMat);
-        sprite.scale.set(12, 12, 1);
+        instRocks.getColorAt(i, haloTempColor);
+        const haloMat = new THREE.SpriteMaterial({ map: glowHaloTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, color: haloTempColor.clone() });
+        const sprite = new THREE.Sprite(haloMat);
+        sprite.scale.set(15, 15, 1);
         sprite.visible = false;
         scene.add(sprite);
         glowHalos.push(sprite);
@@ -1966,14 +1969,14 @@ console.error = function(...args) {
                 }
                 // When bloom is off, boost rock emissive and instance colors to compensate
                 if (matRock.userData.shader) {
-                    matRock.userData.shader.uniforms.emissiveBoost.value = lowNoBloom ? 2.5 : 1.0;
+                    matRock.userData.shader.uniforms.emissiveBoost.value = lowNoBloom ? 5.0 : 1.0;
                 }
                 if (lowNoBloom && instRocks.instanceColor && !instRocks.userData.colorsBoosted) {
                     instRocks.userData.originalColors = instRocks.instanceColor.array.slice();
                     const tempC = new THREE.Color();
                     for (let i = 0; i < ROCK_COUNT; i++) {
                         instRocks.getColorAt(i, tempC);
-                        tempC.multiplyScalar(1.8);
+                        tempC.multiplyScalar(2.5);
                         instRocks.setColorAt(i, tempC);
                     }
                     instRocks.instanceColor.needsUpdate = true;
@@ -1986,8 +1989,6 @@ console.error = function(...args) {
                 const perfPanel = document.getElementById('perf-toggles');
                 if (level === 'low') {
                     lowNoBloom = true;
-                    matRock.blending = THREE.AdditiveBlending;
-                    matRock.needsUpdate = true;
                     applyLowSettings();
                     applyTerrainRes(128);
                     instHighClouds.visible = false;
@@ -2000,8 +2001,6 @@ console.error = function(...args) {
                     lowPixelRatio = false;
                     lowHalfBloom = false;
                     lowNoBloom = false;
-                    matRock.blending = THREE.NormalBlending;
-                    matRock.needsUpdate = true;
                     if (instRocks.userData.colorsBoosted && instRocks.userData.originalColors) {
                         instRocks.instanceColor.array.set(instRocks.userData.originalColors);
                         instRocks.instanceColor.needsUpdate = true;
