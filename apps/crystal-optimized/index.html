@@ -131,6 +131,7 @@ console.error = function(...args) {
     </div>
     <button id="trails-toggle">Wind Trails: ON</button>
     <button id="char-toggle">Change model</button>
+    <button id="atmo-toggle">🎨 Atmosphere</button>
 
     <div id="editor-menu-container" style="display: flex; flex-direction: column; gap: 5px;">
         <button id="editor-menu-toggle">Editor</button>
@@ -3692,6 +3693,132 @@ console.error = function(...args) {
     isPrewarming = false;
     currentFrame = 0;
     logicTimer = 0;
+
+    // ==========================================
+    // ATMOSPHERE & COLOR STUDIO
+    // ==========================================
+    (function initAtmosphereStudio() {
+        const atmoModalHTML = `
+<div id="atmo-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:92%; max-width:440px; max-height:85vh; overflow-y:auto; background:rgba(20,26,40,0.95); border:1.5px solid #4a6fa5; border-radius:12px; padding:18px; color:#e2e8f0; font-family:'Segoe UI',Tahoma,sans-serif; z-index:10000; box-shadow:0 15px 35px rgba(0,0,0,0.6);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #334155; padding-bottom:8px;">
+    <h3 style="margin:0; font-size:16px; color:#6dd5ed;">🎨 Atmosphere & Color Studio</h3>
+    <button id="close-atmo-btn" style="background:transparent; border:none; color:#cbd5e1; font-size:18px; cursor:pointer;">✖</button>
+  </div>
+  <div style="display:flex; gap:6px; margin-bottom:14px;">
+    <button class="atmo-tab-btn" data-phase="0" style="flex:1; padding:7px; border-radius:6px; border:1px solid #475569; background:#2563eb; color:#fff; font-weight:bold; cursor:pointer; font-size:13px;">☀️ Day</button>
+    <button class="atmo-tab-btn" data-phase="1" style="flex:1; padding:7px; border-radius:6px; border:1px solid #475569; background:#334155; color:#cbd5e1; font-weight:bold; cursor:pointer; font-size:13px;">🌇 Dusk</button>
+    <button class="atmo-tab-btn" data-phase="2" style="flex:1; padding:7px; border-radius:6px; border:1px solid #475569; background:#334155; color:#cbd5e1; font-weight:bold; cursor:pointer; font-size:13px;">🌌 Twilight</button>
+  </div>
+  <div style="background:rgba(30,41,59,0.6); border-radius:8px; padding:10px; margin-bottom:12px; border:1px solid #334155;">
+    <div style="font-weight:bold; color:#facc15; font-size:13px; margin-bottom:8px;">☀️ Scene Lighting</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
+      <label style="display:flex; justify-content:space-between; align-items:center;">Sky: <input type="color" id="atmo-bg-col" style="border:none; width:32px; height:22px; border-radius:4px; cursor:pointer;"></label>
+      <label style="display:flex; justify-content:space-between; align-items:center;">Fog: <input type="color" id="atmo-fog-col" style="border:none; width:32px; height:22px; border-radius:4px; cursor:pointer;"></label>
+      <label style="display:flex; justify-content:space-between; align-items:center;">Sun: <input type="color" id="atmo-dir-col" style="border:none; width:32px; height:22px; border-radius:4px; cursor:pointer;"></label>
+      <label style="display:flex; justify-content:space-between; align-items:center;">Ambient: <input type="color" id="atmo-amb-col" style="border:none; width:32px; height:22px; border-radius:4px; cursor:pointer;"></label>
+    </div>
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px; font-size:12px;">
+      <label style="display:flex; justify-content:space-between;">Sun Intensity: <span id="val-dirI">1.4</span></label>
+      <input type="range" id="atmo-dirI" min="0.0" max="6.0" step="0.1" value="1.4" style="width:100%;">
+      <label style="display:flex; justify-content:space-between;">Ambient Intensity: <span id="val-ambI">0.4</span></label>
+      <input type="range" id="atmo-ambI" min="0.0" max="3.0" step="0.1" value="0.4" style="width:100%;">
+      <label style="display:flex; justify-content:space-between;">Exposure: <span id="val-exp">0.9</span></label>
+      <input type="range" id="atmo-exp" min="0.2" max="2.5" step="0.05" value="0.9" style="width:100%;">
+    </div>
+  </div>
+  <div style="background:rgba(30,41,59,0.6); border-radius:8px; padding:10px; margin-bottom:12px; border:1px solid #334155;">
+    <div style="font-weight:bold; color:#a855f7; font-size:13px; margin-bottom:8px;">✨ Bloom & Stars</div>
+    <div style="display:flex; flex-direction:column; gap:6px; font-size:12px;">
+      <label style="display:flex; justify-content:space-between;">Bloom Strength: <span id="val-bloom">0.8</span></label>
+      <input type="range" id="atmo-bloom" min="0.0" max="2.0" step="0.05" value="0.8" style="width:100%;">
+      <label style="display:flex; justify-content:space-between;">Star Opacity: <span id="val-starOp">0.0</span></label>
+      <input type="range" id="atmo-starOp" min="0.0" max="1.0" step="0.05" value="0.0" style="width:100%;">
+    </div>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <button id="atmo-reset-btn" style="background:#ef4444; color:#fff; border:none; padding:7px 12px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px;">🔄 Reset Defaults</button>
+    <button id="atmo-done-btn" style="background:#10b981; color:#fff; border:none; padding:7px 14px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:12px;">Done</button>
+  </div>
+</div>`;
+        document.body.insertAdjacentHTML('beforeend', atmoModalHTML);
+
+        const defaultEnvBackup = JSON.parse(JSON.stringify(envConfigs));
+
+        const toHex = (n) => '#' + n.toString(16).padStart(6, '0');
+        const fromHex = (s) => parseInt(s.replace('#', ''), 16);
+
+        function updateAtmoUI() {
+            const cfg = envConfigs[timePhase];
+            if (!cfg) return;
+            document.querySelectorAll('.atmo-tab-btn').forEach((btn, idx) => {
+                btn.style.background = idx === timePhase ? '#2563eb' : '#334155';
+                btn.style.color = idx === timePhase ? '#fff' : '#cbd5e1';
+            });
+            document.getElementById('atmo-bg-col').value = toHex(cfg.bg);
+            document.getElementById('atmo-fog-col').value = toHex(cfg.fog);
+            document.getElementById('atmo-dir-col').value = toHex(cfg.dir);
+            document.getElementById('atmo-amb-col').value = toHex(cfg.amb);
+            document.getElementById('atmo-dirI').value = cfg.dirI;
+            document.getElementById('val-dirI').innerText = cfg.dirI.toFixed(1);
+            document.getElementById('atmo-ambI').value = cfg.ambI;
+            document.getElementById('val-ambI').innerText = cfg.ambI.toFixed(1);
+            const exp = renderer.toneMappingExposure || 0.9;
+            document.getElementById('atmo-exp').value = exp;
+            document.getElementById('val-exp').innerText = exp.toFixed(2);
+            if (typeof bloomPass !== 'undefined') {
+                document.getElementById('atmo-bloom').value = bloomPass.strength;
+                document.getElementById('val-bloom').innerText = bloomPass.strength.toFixed(2);
+            }
+            document.getElementById('atmo-starOp').value = cfg.starOp;
+            document.getElementById('val-starOp').innerText = cfg.starOp.toFixed(2);
+        }
+
+        document.getElementById('atmo-toggle').addEventListener('click', () => {
+            const modal = document.getElementById('atmo-modal');
+            modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+            if (modal.style.display === 'block') updateAtmoUI();
+        });
+        document.getElementById('close-atmo-btn').addEventListener('click', () => {
+            document.getElementById('atmo-modal').style.display = 'none';
+        });
+        document.getElementById('atmo-done-btn').addEventListener('click', () => {
+            document.getElementById('atmo-modal').style.display = 'none';
+        });
+
+        document.querySelectorAll('.atmo-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                timePhase = parseInt(btn.getAttribute('data-phase'));
+                const labels = ['Time of day: Dusk', 'Time of day: Twilight', 'Time of day: Day'];
+                document.getElementById('time-toggle').innerText = labels[timePhase];
+                updateAtmoUI();
+            });
+        });
+
+        ['atmo-bg-col','atmo-fog-col','atmo-dir-col','atmo-amb-col','atmo-dirI','atmo-ambI','atmo-exp','atmo-bloom','atmo-starOp'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', () => {
+                const cfg = envConfigs[timePhase];
+                if (id === 'atmo-bg-col')  cfg.bg  = fromHex(el.value);
+                if (id === 'atmo-fog-col') cfg.fog = fromHex(el.value);
+                if (id === 'atmo-dir-col') cfg.dir = fromHex(el.value);
+                if (id === 'atmo-amb-col') cfg.amb = fromHex(el.value);
+                if (id === 'atmo-dirI') { cfg.dirI = parseFloat(el.value); document.getElementById('val-dirI').innerText = cfg.dirI.toFixed(1); }
+                if (id === 'atmo-ambI') { cfg.ambI = parseFloat(el.value); document.getElementById('val-ambI').innerText = cfg.ambI.toFixed(1); }
+                if (id === 'atmo-exp')  { renderer.toneMappingExposure = parseFloat(el.value); document.getElementById('val-exp').innerText = parseFloat(el.value).toFixed(2); }
+                if (id === 'atmo-bloom' && typeof bloomPass !== 'undefined') { bloomPass.strength = parseFloat(el.value); document.getElementById('val-bloom').innerText = parseFloat(el.value).toFixed(2); }
+                if (id === 'atmo-starOp') { cfg.starOp = parseFloat(el.value); document.getElementById('val-starOp').innerText = parseFloat(el.value).toFixed(2); }
+            });
+        });
+
+        document.getElementById('atmo-reset-btn').addEventListener('click', () => {
+            for (let i = 0; i < defaultEnvBackup.length; i++) {
+                envConfigs[i] = JSON.parse(JSON.stringify(defaultEnvBackup[i]));
+            }
+            renderer.toneMappingExposure = 0.9;
+            updateAtmoUI();
+        });
+    })();
 
     animate();
   </script>
