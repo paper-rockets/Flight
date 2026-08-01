@@ -125,7 +125,7 @@ console.error = function(...args) {
 
     <select id="quality-toggle" style="background: rgba(255,255,255,0.6); border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; color: rgba(60,50,70,0.9); backdrop-filter: blur(6px); font-size: 13px;">
       <option value="low">Quality: Low</option>
-      <option value="medium" selected>Quality: Medium</option>
+      <option value="medium">Quality: Medium</option>
       <option value="high">Quality: High</option>
     </select>
     <button id="pause-toggle">Pause Flight</button>
@@ -720,9 +720,9 @@ console.error = function(...args) {
     const ROCK_COUNT = isMobile ? 120 : 800;
     const BUSH_COUNT = isMobile ? 72 : 216;
     const ANIMAL_COUNT = isMobile ? 25 : 50;
-    const CLOUD_COUNT = 50;
-    const FLOWER_COUNT = 0; // Removed flowers
-    const TREE_MULT = isMobile ? 0.3 : 1.0;
+    const CLOUD_COUNT = isMobile ? 20 : 50;
+    const FLOWER_COUNT = 0;
+    const TREE_MULT = isMobile ? 0.2 : 1.0;
     
     function applyColor(geometry, colorHex) {
         const color = new THREE.Color(colorHex);
@@ -1147,7 +1147,7 @@ console.error = function(...args) {
     scene.add(instClouds);
 
     // Super High Cumulonimbus Clouds
-    const HIGH_CLOUD_COUNT = 72;
+    const HIGH_CLOUD_COUNT = isMobile ? 24 : 72;
     const baseCloudSpheres = [];
     const mainPillar = new THREE.DodecahedronGeometry(150, 1);
     mainPillar.scale(1, 1.2, 1);
@@ -1885,6 +1885,14 @@ console.error = function(...args) {
             document.getElementById('quality-toggle').addEventListener('change', (e) => {
                 setQuality(e.target.value);
             });
+
+            if (isMobile) {
+                document.getElementById('quality-toggle').value = 'low';
+                setQuality('low');
+            } else {
+                document.getElementById('quality-toggle').value = 'medium';
+                setQuality('medium');
+            }
 
             function applyLowSettings() {
                 const pr = lowPixelRatio ? 0.75 : 1.0;
@@ -2626,7 +2634,7 @@ console.error = function(...args) {
     // ==========================================
     // AMBIENT MAGIC DUST PARTICLES
     // ==========================================
-    const DUST_COUNT = isMobile ? 150 : 400;
+    const DUST_COUNT = isMobile ? 80 : 400;
     const dustPositions = new Float32Array(DUST_COUNT * 3);
     const dustVelocities = new Float32Array(DUST_COUNT * 3);
     const dustSeeds = new Float32Array(DUST_COUNT);
