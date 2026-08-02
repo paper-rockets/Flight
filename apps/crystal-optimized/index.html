@@ -734,7 +734,7 @@ console.error = function(...args) {
         if (trailsBtn) trailsBtn.innerText = 'Wind Trails: OFF';
     }
 
-    const ROCK_COUNT = isMobile ? 120 : 800;
+    const ROCK_COUNT = isMobile ? 250 : 800;
     const BUSH_COUNT = isMobile ? 72 : 216;
     const ANIMAL_COUNT = isMobile ? 25 : 50;
     const CLOUD_COUNT = isMobile ? 40 : 100;
@@ -1642,7 +1642,7 @@ console.error = function(...args) {
 
         // Rocks
         let rocksUpdated = false;
-        const rockRenderDist = 1200;
+        const rockRenderDist = isMobile ? 800 : 1200;
         for (let i = currentFrame % 5; i < ROCK_COUNT; i += 5) {
             instRocks.getMatrixAt(i, dummy.matrix);
             dummy.position.setFromMatrixPosition(dummy.matrix);
