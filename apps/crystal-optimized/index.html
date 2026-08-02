@@ -145,7 +145,7 @@ console.error = function(...args) {
     <div id="perf-toggles" style="display: none; flex-direction: column; gap: 4px; margin-left: 10px; border-left: 2px solid rgba(255,255,255,0.3); padding-left: 8px;">
       <div style="font-size: 9px; opacity: 0.5; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Perf Tweaks</div>
       <button id="px-ratio-toggle" style="font-size: 11px; padding: 5px 8px;">Pixel Ratio: 1.0x</button>
-      <button id="bloom-res-toggle" style="font-size: 11px; padding: 5px 8px;">Bloom: Full Res</button>
+      <button id="bloom-res-toggle" style="font-size: 11px; padding: 5px 8px;">Bloom: Half</button>
       <button id="terrain-hz-toggle" style="font-size: 11px; padding: 5px 8px;">Terrain: 15Hz</button>
       <button id="fps-cap-toggle" style="font-size: 11px; padding: 5px 8px;">FPS Cap: OFF</button>
       <button id="half-rocks-toggle" style="font-size: 11px; padding: 5px 8px;">Rocks: Full</button>
@@ -1947,9 +1947,8 @@ console.error = function(...args) {
                 composer.setSize(cw, ch);
                 if (typeof bloomPass !== 'undefined') {
                     bloomPass.enabled = true;
-                    const bloomW = lowHalfBloom ? Math.floor(cw / 2) : Math.floor(cw / 2);
-                    const bloomH = lowHalfBloom ? Math.floor(ch / 2) : Math.floor(ch / 2);
-                    bloomPass.setSize(bloomW, bloomH);
+                    const bloomDiv = lowHalfBloom ? 4 : 2;
+                    bloomPass.setSize(Math.floor(cw / bloomDiv), Math.floor(ch / bloomDiv));
                 }
             }
 
@@ -1990,7 +1989,7 @@ console.error = function(...args) {
             });
             document.getElementById('bloom-res-toggle').addEventListener('click', () => {
                 lowHalfBloom = !lowHalfBloom;
-                document.getElementById('bloom-res-toggle').innerText = `Bloom: ${lowHalfBloom ? 'Half Res' : 'Full Res'}`;
+                document.getElementById('bloom-res-toggle').innerText = `Bloom: ${lowHalfBloom ? 'Quarter' : 'Half'}`;
                 applyLowSettings();
             });
             document.getElementById('terrain-hz-toggle').addEventListener('click', () => {
